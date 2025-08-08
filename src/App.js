@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Row, Col, Card, Dropdown, ButtonGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, ButtonGroup } from 'react-bootstrap';
 // import logo from './logo.svg';
 import TodoItem from './TodoItem';
 import AddTodoForm from './AddTodoForm';
@@ -9,16 +9,18 @@ import './App.css';
 
 function App() {
   const [todos, setTodos] = useState([]); 
-  const [nextId, setNextId] = useState(1); 
+  const [nextId, setNextId] = useState(); 
   const [categories, setCategories] = useState([]); 
-  const [nextCategoryId, setNextCategoryId] = useState(1);
-  
+  const [nextCategoryId, setNextCategoryId] = useState();
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('priority');
 
   useEffect(() => { 
     const savedTodos = localStorage.getItem('todos'); 
     const savedCategories = localStorage.getItem('categories');
     const savedNextId = localStorage.getItem('nextId');  
     const savedNextCategoryId = localStorage.getItem('nextCategoryId');
+    
     if (savedTodos) { 
       setTodos(JSON.parse(savedTodos)); 
     }
@@ -56,21 +58,49 @@ function App() {
   }, [categories]);
 
   useEffect(() => { 
-    localStorage.setItem('nextCategoryId', nextCategoryId.toString()); 
+    if (nextCategoryId > 0){
+      localStorage.setItem('nextCategoryId', nextCategoryId.toString()); 
+    }
   }, [nextCategoryId]);
 
+  const filteredTodos = selectedCategoryFilter === 'all' 
+    ? todos 
+    : todos.filter(todo => {
+        const todoCategory = todo.categoryId;
+        const filterCategory = selectedCategoryFilter === 'all' ? 'all' : parseInt(selectedCategoryFilter);
+        return todoCategory === filterCategory;
+      });
 
-  const addTodo = (text, priority, categoryId) => { 
+  const getSortedTodos = (todosToSort) => {
+    return [...todosToSort].sort((a, b) => {
+      switch (sortBy) {
+        case 'dueDate':
+          if (!a.dueDate && !b.dueDate) return a.priority - b.priority;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate) - new Date(b.dueDate);
+        case 'priority':
+          return a.priority - b.priority;
+        default:
+          return a.priority - b.priority;
+      }
+    });
+  };
+
+
+  const addTodo = (text, priority, categoryId, dueDate) => { 
     const newTodo = { 
       id: nextId, 
       text: text, 
       priority: parseInt(priority),
-      categoryId: categoryId,
+      categoryId: parseInt(categoryId) || null,
+      dueDate: dueDate || null,
       completed: false 
     }; 
     setTodos([...todos, newTodo]); 
     setNextId(nextId + 1); 
   };
+
 
   const addCategory = (text) => { 
     const newCategory = {
@@ -95,13 +125,31 @@ function App() {
   const deleteCategory = (id) => { 
     const updatedCategories = categories.filter(category => category.id !== Number(id));
     setCategories(updatedCategories);
+    if (selectedCategoryFilter === id.toString()) {
+      setSelectedCategoryFilter('all');
+    }
   };
 
-  const resetTodos = () => {
-    localStorage.clear(); // or localStorage.removeItem('todos')
-    setTodos([]);
-    setNextId(1); // reset your ID counter
+  const resetCategory  = () => {
+    localStorage.removeItem('categories');
+  }
+
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : 'Uncategorized';
   };
+
+  const getOverdueCount = () => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    return todos.filter(todo => 
+      !todo.completed && 
+      todo.dueDate && 
+      new Date(todo.dueDate) < today
+    ).length;
+  };
+
+  const sortedAndFilteredTodos = getSortedTodos(filteredTodos);
 
   return (
     <Container className='py-4'>
@@ -111,7 +159,12 @@ function App() {
             <Card.Header >
               <Row className="d-flex justify-content-between align-items-center">
                 <Col md={8}>
-                  <h1 className="mb-0">My TODO App</h1>
+                  <h1 className="mb-0">TODO List</h1>
+                  {getOverdueCount() > 0 && (
+                    <small className="text-danger">
+                      {getOverdueCount()} overdue task{getOverdueCount() > 1 ? 's' : ''}
+                    </small>
+                  )}
                 </Col>
                 <Col md={4} className="d-flex justify-content-end align-items-center">
                   <AddTodoForm onAddTodo={addTodo} categories={categories}/>
@@ -119,12 +172,67 @@ function App() {
                 </Col>
               </Row>
             </Card.Header>
+            
+            <Card.Body className="border-bottom py-3">
+              <Row className="align-items-center">
+                <Col md={4}>
+                  {categories.length > 0 && (
+                    <Form.Group className="d-flex align-items-center gap-2 mb-0">
+                      <Form.Label className="mb-0 text-muted">Filter:</Form.Label>
+                      <Form.Select 
+                        size="sm"
+                        value={selectedCategoryFilter}
+                        onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                        style={{ width: 'auto' }}
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map(category => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  )}
+                </Col>
+                
+                <Col md={4}>
+                  <Form.Group className="d-flex align-items-center gap-2 mb-0">
+                    <Form.Label className="mb-0 text-muted">Sort by:</Form.Label>
+                    <Form.Select 
+                      size="sm"
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      style={{ width: 'auto' }}
+                    >
+                      <option value="priority">Priority</option>
+                      <option value="dueDate">Due Date</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                
+                <Col md={4} className="text-end">
+                  {selectedCategoryFilter !== 'all' && (
+                    <small className="text-muted">
+                      Showing: {getCategoryName(parseInt(selectedCategoryFilter))} 
+                      ({filteredTodos.length} todos)
+                    </small>
+                  )}
+                </Col>
+              </Row>
+            </Card.Body>
+
             <Card.Body>
-              {todos.length === 0 ? ( 
-                <p className="no-todos">No TODOs yet. Add one above!</p> 
+              {sortedAndFilteredTodos.length === 0 ? ( 
+                <p className="no-todos text-center text-muted py-4">
+                  {selectedCategoryFilter === 'all' 
+                    ? "No TODOs yet. Add one above!" 
+                    : `No TODOs in ${getCategoryName(parseInt(selectedCategoryFilter))} category.`
+                  }
+                </p> 
               ) : ( 
-              <ul className="todo-list"> 
-                {todos.sort((a, b) => a.priority - b.priority).map(todo => ( 
+              <ul className="todo-list list-unstyled"> 
+                {sortedAndFilteredTodos.map(todo => ( 
                   <TodoItem 
                     key={todo.id} 
                     todo={todo} 
@@ -136,10 +244,22 @@ function App() {
               </ul>
               )}
             </Card.Body>
+
             <Card.Footer className="d-flex justify-content-between align-items-center">
               <span className='text-muted'>
-                Total: {todos.length} | Completed: {todos.filter(t => t.completed).length}
+                Total: {todos.length} | 
+                {selectedCategoryFilter === 'all' ? (
+                  <> Completed: {todos.filter(t => t.completed).length}</>
+                ) : (
+                  <> Filtered: {filteredTodos.length} | Completed: {filteredTodos.filter(t => t.completed).length}</>
+                )}
+                {getOverdueCount() > 0 && (
+                  <> | <span className="text-danger">Overdue: {getOverdueCount()}</span></>
+                )}
               </span>
+              <button onClick={resetCategory}>
+                Reset Categories
+              </button>
             </Card.Footer>
           </Card>
         </Col>

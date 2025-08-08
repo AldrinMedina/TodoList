@@ -9,26 +9,39 @@ function AddTodoForm({ onAddTodo, categories = [] }) {
   const [inputText, setInputText] = useState(''); 
   const [priority, setPriority] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [show, setShow] = useState(false);
 
   const handleClose = () => {
     setShow(false);
-    // Reset form fields when closing
     setInputText('');
     setPriority('');
     setCategoryId('');
+    setDueDate('');
   };
   
   const handleShow = () => setShow(true);
+
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
  
+  const getMaxDate = () => {
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    return nextYear.toISOString().split('T')[0];
+  };
+
   const handleSubmit = (e) => { 
     e.preventDefault(); 
     if (inputText.trim() !== '' && priority.trim() !== '') { 
-      onAddTodo(inputText.trim(), priority, categoryId || null); 
+      onAddTodo(inputText.trim(), priority, categoryId || null, dueDate || null); 
       // Reset form fields
       setInputText(''); 
       setPriority('');
       setCategoryId('');
+      setDueDate('');
       handleClose();
     } 
   }; 
@@ -76,6 +89,24 @@ function AddTodoForm({ onAddTodo, categories = [] }) {
               </Col>
 
               <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Due Date (Optional)</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    min={getTodayDate()}
+                    max={getMaxDate()}
+                  />
+                  <Form.Text className="text-muted">
+                    Leave empty for no due date
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={12}>
                 <Form.Group className="mb-3">
                   <Form.Label>Category (Optional)</Form.Label>
                   <Form.Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
