@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Row, Col, Card, Form, ButtonGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form } from 'react-bootstrap';
 // import logo from './logo.svg';
 import TodoItem from './TodoItem';
+import CategoryItem from './CategoryItem';
 import AddTodoForm from './AddTodoForm';
 import AddCategories from './AddCategories';
 import './App.css';
@@ -125,6 +126,7 @@ function App() {
   const deleteCategory = (id) => { 
     const updatedCategories = categories.filter(category => category.id !== Number(id));
     setCategories(updatedCategories);
+    localStorage.setItem('categories', JSON.stringify(updatedCategories));
     if (selectedCategoryFilter === id.toString()) {
       setSelectedCategoryFilter('all');
     }
@@ -141,7 +143,7 @@ function App() {
 
   const getOverdueCount = () => {
     const today = new Date();
-    today.setHours(23, 59, 59, 999); // End of today
+    today.setHours(23, 59, 59, 999);
     return todos.filter(todo => 
       !todo.completed && 
       todo.dueDate && 
@@ -257,9 +259,7 @@ function App() {
                   <> | <span className="text-danger">Overdue: {getOverdueCount()}</span></>
                 )}
               </span>
-              <button onClick={resetCategory}>
-                Reset Categories
-              </button>
+              <CategoryItem categories={categories} onDelete={deleteCategory} onReset={resetCategory}/>
             </Card.Footer>
           </Card>
         </Col>
